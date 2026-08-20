@@ -62,20 +62,7 @@ class Automata:
         return resultado, mensaje, palabra_mostrada
 
     def jugar_turno(self, texto):
-        """
-        Procesa un turno completo del jugador.
-
-        Retorna un diccionario con todo lo que necesita la UI:
-          {
-            "resultado": ACIERTO | FALLO | REPETIDA | ERROR_FATAL,
-            "mensaje": str,
-            "palabra_mostrada": str,
-            "estado": EN_JUEGO | GANADO | PERDIDO,
-            "intentos_fallidos": int,
-            "parte_dibujada": str | None,   # parte del ahorcado a dibujar, si aplica
-            "fila_aid": dict                # la misma fila que se agregó a self.tabla_aid
-          }
-        """
+        
         estado_previo = self.estado
 
         if self.estado != "EN_JUEGO":

@@ -107,18 +107,7 @@ class LetrasJugadas:
     # comparativa que necesita el Autómata / la tabla del AID (Code 2)
     # -------------------------------------------------------------
     def procesar(self, chars, palabra_objetivo: list[str]) -> tuple[str, str, str]:
-        """
-        chars: lista con el/los carácter(es) recién ingresados. El juego
-               trabaja de a una letra por turno, así que se evalúa chars[0].
-        palabra_objetivo: lista de palabras de la respuesta, p. ej.
-                           ["SMASH", "BROS"].
-
-        Retorna una tupla (resultado, mensaje, palabra_mostrada):
-          - resultado: uno de ACIERTO / FALLO / REPETIDA / ERROR_FATAL
-          - mensaje: texto explicativo para mostrar en la tabla del AID
-          - palabra_mostrada: la palabra objetivo con las letras aún no
-                               adivinadas reemplazadas por guiones bajos
-        """
+        
         if not chars:
             return self.ERROR_FATAL, "No se ingresó ningún carácter.", self._mostrar_palabra(palabra_objetivo)
 
