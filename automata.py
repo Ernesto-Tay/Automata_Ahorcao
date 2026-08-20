@@ -1,0 +1,173 @@
+from Funciones import LetrasJugadas
+import random
+
+
+class Automata:
+   
+    # Partes del ahorcado en el orden en que se van dibujando (6 fallos = derrota)
+    PARTES_AHORCADO = [
+        "Cabeza",
+        "Torso",
+        "Brazo izquierdo",
+        "Brazo derecho",
+        "Pie izquierdo",
+        "Pie derecho",
+    ]
+    MAX_INTENTOS = len(PARTES_AHORCADO)
+
+    def __init__(self):
+        self.banco_palabras = {
+            "Nombres": ["MARÍA", "JUAN", "JOSÉ", "BORIS", "PABLO", "DIEGO", "ÁNGEL", "CHISTOPHER", "ARIANA", "GRACIELA"],
+            "Animales": ["PERRO", "GATO", "TOPO", "LEÓN", "TIGRE", "BALLENA", "CAMARÓN", "TUNGTUNG", "GUACAMAYA", "ARDILLA"],
+            "Videojuegos": ["MINECRAFT", "SMASH BROS", "CLUB PENGUIN", "CALL OF DUTY", "FIFA", "DARK SOULS", "HOLLOW KNIGHT", "PEAK", "FORTNITE", "SUPER SMASH BROS"],
+            "Celebridades": ["TOM HOLLAND", "BEN AFFLECK", "TOM CRUISE", "GUILLERMO DEL TORO", "FARAON LOVE SHADY", "ROSALÍA", "ZENDAYA", "ROBERT DOWNEY JR", "SYDELLE NOEL", "NICOLAS CAGE"],
+            "Peliculas": ["TIBURÓN", "ALIEN", "RATATOUILLE", "WHIPLASH", "MOON", "ROMA", "TIMECRIMES", "DRIVE", "AMÉLIE", "COHERENCE"],
+            "Idiomas": ["CROATA", "ESPAÑOL", "COREANO", "MANDARÍN", "TURCO", "RUMANO", "KAKCHIQUEL", "INGLÉS", "BÚLGARO"],
+        }
+        self.palabra = None            # lista de palabras, p. ej. ["SMASH", "BROS"]
+        self.pista = None              # categoría
+        self.letras_check = LetrasJugadas()
+
+        self.estado = "EN_JUEGO"
+        self.intentos_fallidos = 0
+        self.tabla_aid = []            # historial de eventos para la UI 2
+        self.motivo_fin = None         # se llena cuando el juego termina
+
+        self.iniciar()
+
+    def iniciar(self):
+        categorias = list(self.banco_palabras.keys())
+        cat = random.choice(categorias)
+        palabras = self.banco_palabras[cat]
+        palabra = random.choice(list(palabras))
+
+        self.palabra = palabra.split()
+        self.pista = cat
+
+        self.letras_check.reiniciar()
+        self.estado = "EN_JUEGO"
+        self.intentos_fallidos = 0
+        self.tabla_aid = []
+        self.motivo_fin = None
+
+        return self.palabra
+
+    def evaluar_entrada(self, texto):
+        """Valida y compara una entrada contra la palabra objetivo, sin
+        modificar el estado de la partida. Útil si la UI solo quiere
+        previsualizar el resultado."""
+        texto = texto.upper()
+        chars = list(texto.strip())
+        resultado, mensaje, palabra_mostrada = self.letras_check.procesar(chars, self.palabra)
+        return resultado, mensaje, palabra_mostrada
+
+    def jugar_turno(self, texto):
+        """
+        Procesa un turno completo del jugador.
+
+        Retorna un diccionario con todo lo que necesita la UI:
+          {
+            "resultado": ACIERTO | FALLO | REPETIDA | ERROR_FATAL,
+            "mensaje": str,
+            "palabra_mostrada": str,
+            "estado": EN_JUEGO | GANADO | PERDIDO,
+            "intentos_fallidos": int,
+            "parte_dibujada": str | None,   # parte del ahorcado a dibujar, si aplica
+            "fila_aid": dict                # la misma fila que se agregó a self.tabla_aid
+          }
+        """
+        estado_previo = self.estado
+
+        if self.estado != "EN_JUEGO":
+            # El juego ya terminó, no se procesan más turnos
+            fila = self._registrar_fila(
+                entrada=texto,
+                resultado="IGNORADO",
+                mensaje="La partida ya finalizó. Reinicia para jugar de nuevo.",
+                estado_previo=estado_previo,
+                estado_nuevo=self.estado,
+            )
+            return {
+                "resultado": "IGNORADO",
+                "mensaje": fila["mensaje"],
+                "palabra_mostrada": self.letras_check._mostrar_palabra(self.palabra),
+                "estado": self.estado,
+                "intentos_fallidos": self.intentos_fallidos,
+                "parte_dibujada": None,
+                "fila_aid": fila,
+            }
+
+        resultado, mensaje, palabra_mostrada = self.evaluar_entrada(texto)
+        parte_dibujada = None
+
+        if resultado == self.letras_check.ERROR_FATAL:
+            # Regla del juego: cualquier error que NO sea "letra fuera de la
+            # palabra" (FALLO) termina la partida inmediatamente.
+            self.estado = "PERDIDO"
+            self.motivo_fin = mensaje
+
+        elif resultado == self.letras_check.FALLO:
+            self.intentos_fallidos += 1
+            if self.intentos_fallidos <= self.MAX_INTENTOS:
+                parte_dibujada = self.PARTES_AHORCADO[self.intentos_fallidos - 1]
+            if self.intentos_fallidos >= self.MAX_INTENTOS:
+                self.estado = "PERDIDO"
+                self.motivo_fin = "Se agotaron los intentos: el ahorcado se completó."
+
+        elif resultado == self.letras_check.ACIERTO:
+            if self.letras_check.palabra_completa(self.palabra):
+                self.estado = "GANADO"
+                self.motivo_fin = "¡Palabra adivinada por completo!"
+
+        # REPETIDA no cambia el estado ni los intentos, solo se informa.
+
+        fila = self._registrar_fila(
+            entrada=texto,
+            resultado=resultado,
+            mensaje=mensaje,
+            estado_previo=estado_previo,
+            estado_nuevo=self.estado,
+        )
+
+        return {
+            "resultado": resultado,
+            "mensaje": mensaje,
+            "palabra_mostrada": palabra_mostrada,
+            "estado": self.estado,
+            "intentos_fallidos": self.intentos_fallidos,
+            "parte_dibujada": parte_dibujada,
+            "fila_aid": fila,
+        }
+
+    # Utilidades para la tabla del AID (UI 2)
+    def _registrar_fila(self, entrada, resultado, mensaje, estado_previo, estado_nuevo):
+        fila = {
+            "n": len(self.tabla_aid) + 1,
+            "entrada": entrada,
+            "estado_previo": estado_previo,
+            "resultado": resultado,
+            "estado_nuevo": estado_nuevo,
+            "mensaje": mensaje,
+            "intentos_fallidos": self.intentos_fallidos,
+        }
+        self.tabla_aid.append(fila)
+        return fila
+
+    def obtener_tabla_aid(self):
+        return list(self.tabla_aid)
+
+    def obtener_palabra_mostrada(self):
+        """Palabra objetivo con guiones bajos en las letras aún no adivinadas.
+        Pensado para que la UI 1 lo consuma directamente."""
+        return self.letras_check._mostrar_palabra(self.palabra)
+
+    def obtener_letras_usadas(self):
+        """Letras ya jugadas (válidas), ordenadas alfabéticamente."""
+        return sorted(self.letras_check.obtener_usadas())
+
+    def obtener_partes_dibujadas(self):
+        """Lista de las partes del ahorcado que ya deberían estar dibujadas."""
+        return self.PARTES_AHORCADO[: self.intentos_fallidos]
+
+    def esta_terminado(self):
+        return self.estado != "EN_JUEGO"
