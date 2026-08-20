@@ -4,7 +4,6 @@ import random
 
 class Automata:
    
-    # Partes del ahorcado en el orden en que se van dibujando (6 fallos = derrota)
     PARTES_AHORCADO = [
         "Cabeza",
         "Torso",
@@ -53,9 +52,7 @@ class Automata:
         return self.palabra
 
     def evaluar_entrada(self, texto):
-        """Valida y compara una entrada contra la palabra objetivo, sin
-        modificar el estado de la partida. Útil si la UI solo quiere
-        previsualizar el resultado."""
+        
         texto = texto.upper()
         chars = list(texto.strip())
         resultado, mensaje, palabra_mostrada = self.letras_check.procesar(chars, self.palabra)
@@ -66,7 +63,6 @@ class Automata:
         estado_previo = self.estado
 
         if self.estado != "EN_JUEGO":
-            # El juego ya terminó, no se procesan más turnos
             fila = self._registrar_fila(
                 entrada=texto,
                 resultado="IGNORADO",
@@ -88,8 +84,6 @@ class Automata:
         parte_dibujada = None
 
         if resultado == self.letras_check.ERROR_FATAL:
-            # Regla del juego: cualquier error que NO sea "letra fuera de la
-            # palabra" (FALLO) termina la partida inmediatamente.
             self.estado = "PERDIDO"
             self.motivo_fin = mensaje
 
@@ -106,7 +100,6 @@ class Automata:
                 self.estado = "GANADO"
                 self.motivo_fin = "¡Palabra adivinada por completo!"
 
-        # REPETIDA no cambia el estado ni los intentos, solo se informa.
 
         fila = self._registrar_fila(
             entrada=texto,
@@ -126,7 +119,6 @@ class Automata:
             "fila_aid": fila,
         }
 
-    # Utilidades para la tabla del AID (UI 2)
     def _registrar_fila(self, entrada, resultado, mensaje, estado_previo, estado_nuevo):
         fila = {
             "n": len(self.tabla_aid) + 1,
@@ -144,16 +136,12 @@ class Automata:
         return list(self.tabla_aid)
 
     def obtener_palabra_mostrada(self):
-        """Palabra objetivo con guiones bajos en las letras aún no adivinadas.
-        Pensado para que la UI 1 lo consuma directamente."""
         return self.letras_check._mostrar_palabra(self.palabra)
 
     def obtener_letras_usadas(self):
-        """Letras ya jugadas (válidas), ordenadas alfabéticamente."""
         return sorted(self.letras_check.obtener_usadas())
 
     def obtener_partes_dibujadas(self):
-        """Lista de las partes del ahorcado que ya deberían estar dibujadas."""
         return self.PARTES_AHORCADO[: self.intentos_fallidos]
 
     def esta_terminado(self):
